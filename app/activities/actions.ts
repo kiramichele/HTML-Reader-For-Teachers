@@ -24,9 +24,13 @@ async function persistHtmlActivity(opts: {
   const id = randomUUID();
   const storagePath = `${opts.userId}/${id}.html`;
 
+  // Upload a typed Blob (not a bare string): supabase-js doesn't reliably apply
+  // the contentType option to a string body, and a text/plain file makes the
+  // browser show the HTML source instead of rendering it.
+  const body = new Blob([opts.html], { type: "text/html; charset=utf-8" });
   const { error: uploadErr } = await admin.storage
     .from(BUCKET)
-    .upload(storagePath, opts.html, {
+    .upload(storagePath, body, {
       contentType: "text/html; charset=utf-8",
       upsert: true,
     });
