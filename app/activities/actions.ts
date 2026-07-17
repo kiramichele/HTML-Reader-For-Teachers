@@ -7,8 +7,50 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { makeSlug } from "@/lib/slug";
+import { generateActivity, type GeneratedActivity } from "@/lib/anthropic";
 
 const BUCKET = "activities";
+
+// Shared: store an HTML string + create the activity row. Returns the new id.
+async function persistHtmlActivity(opts: {
+  userId: string;
+  title: string;
+  html: string;
+  collectData: boolean;
+}): Promise<{ ok: true; id: string } | { ok: false; error: string }> {
+  const supabase = await createClient();
+  const admin = createAdminClient();
+
+  const id = randomUUID();
+  const storagePath = `${opts.userId}/${id}.html`;
+
+  const { error: uploadErr } = await admin.storage
+    .from(BUCKET)
+    .upload(storagePath, opts.html, {
+      contentType: "text/html; charset=utf-8",
+      upsert: true,
+    });
+  if (uploadErr) return { ok: false, error: `Upload failed: ${uploadErr.message}` };
+
+  const { error: insertErr } = await supabase.from("activities").insert({
+    id,
+    teacher_id: opts.userId,
+    title: opts.title,
+    storage_path: storagePath,
+    collect_data: opts.collectData,
+    share_slug: makeSlug(),
+  });
+  if (insertErr) {
+    await admin.storage.from(BUCKET).remove([storagePath]);
+    return { ok: false, error: `Couldn't save activity: ${insertErr.message}` };
+  }
+
+  return { ok: true, id };
+}
+
+// ---------------------------------------------------------------------
+// Upload flow
+// ---------------------------------------------------------------------
 
 const createSchema = z.object({
   title: z.string().trim().min(1, "Give it a title").max(200),
@@ -48,37 +90,85 @@ export async function createActivity(
   }
 
   const html = await file.text();
-  const id = randomUUID();
-  const storagePath = `${user.id}/${id}.html`;
-
-  // Upload with the service-role client so we don't depend on storage RLS.
-  const admin = createAdminClient();
-  const { error: uploadErr } = await admin.storage
-    .from(BUCKET)
-    .upload(storagePath, html, {
-      contentType: "text/html; charset=utf-8",
-      upsert: true,
-    });
-  if (uploadErr) return { error: `Upload failed: ${uploadErr.message}` };
-
-  // Insert the row as the authed teacher so RLS enforces ownership.
-  const { error: insertErr } = await supabase.from("activities").insert({
-    id,
-    teacher_id: user.id,
+  const result = await persistHtmlActivity({
+    userId: user.id,
     title: parsed.data.title,
-    storage_path: storagePath,
-    collect_data: parsed.data.collect_data === "yes",
-    share_slug: makeSlug(),
+    html,
+    collectData: parsed.data.collect_data === "yes",
   });
-  if (insertErr) {
-    // best-effort cleanup so we don't orphan the file
-    await admin.storage.from(BUCKET).remove([storagePath]);
-    return { error: `Couldn't save activity: ${insertErr.message}` };
-  }
+  if (!result.ok) return { error: result.error };
 
   revalidatePath("/dashboard");
-  redirect(`/activities/${id}`);
+  redirect(`/activities/${result.id}`);
 }
+
+// ---------------------------------------------------------------------
+// AI generation flow (upload-first parity: same storage/player pipeline)
+// ---------------------------------------------------------------------
+
+export type GenerateState =
+  | { status: "idle" }
+  | { status: "error"; error: string }
+  | { status: "ready"; activity: GeneratedActivity; prompt: string };
+
+const promptSchema = z.string().trim().min(4, "Describe your activity").max(4000);
+
+export async function generateActivityDraft(
+  _prev: GenerateState,
+  formData: FormData
+): Promise<GenerateState> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { status: "error", error: "Not signed in" };
+
+  const parsed = promptSchema.safeParse(formData.get("prompt"));
+  if (!parsed.success) {
+    return { status: "error", error: parsed.error.issues[0]?.message ?? "Invalid prompt" };
+  }
+
+  const result = await generateActivity(parsed.data);
+  if (!result.ok) return { status: "error", error: result.error };
+
+  return { status: "ready", activity: result.activity, prompt: parsed.data };
+}
+
+const saveSchema = z.object({
+  title: z.string().trim().min(1).max(200),
+  html: z.string().min(1).max(1_000_000),
+  collectData: z.boolean(),
+});
+
+export async function saveGeneratedActivity(input: {
+  title: string;
+  html: string;
+  collectData: boolean;
+}): Promise<{ ok: boolean; id?: string; error?: string }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Not signed in" };
+
+  const parsed = saveSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Invalid activity" };
+
+  const result = await persistHtmlActivity({
+    userId: user.id,
+    title: parsed.data.title,
+    html: parsed.data.html,
+    collectData: parsed.data.collectData,
+  });
+  if (!result.ok) return { ok: false, error: result.error };
+
+  revalidatePath("/dashboard");
+  return { ok: true, id: result.id };
+}
+
+// ---------------------------------------------------------------------
+// Delete
+// ---------------------------------------------------------------------
 
 export async function deleteActivity(formData: FormData) {
   const id = formData.get("id");
@@ -90,7 +180,6 @@ export async function deleteActivity(formData: FormData) {
   } = await supabase.auth.getUser();
   if (!user) return;
 
-  // Fetch to confirm ownership + get the storage path (RLS restricts to owner).
   const { data: activity } = await supabase
     .from("activities")
     .select("id, storage_path")

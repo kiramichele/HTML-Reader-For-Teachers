@@ -15,8 +15,13 @@ export default function NewActivityPage() {
       </header>
       <div className="max-w-md mx-auto px-6 py-8">
         <h1 className="text-2xl font-semibold mb-1">New activity</h1>
-        <p className="text-muted text-sm mb-8">
+        <p className="text-muted text-sm mb-2">
           Upload the HTML file you made with Claude.
+        </p>
+        <p className="text-sm mb-8">
+          <Link href="/activities/generate" className="text-accent hover:underline">
+            Or have Claude build one for you →
+          </Link>
         </p>
         <UploadForm />
       </div>

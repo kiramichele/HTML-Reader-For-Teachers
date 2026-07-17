@@ -24,6 +24,12 @@ cp .env.local.example .env.local
 
 Fill in the three values from step 1.
 
+**Optional — AI generation ("Generate with Claude"):** also set `ANTHROPIC_API_KEY`
+(from <https://console.anthropic.com/>). Leave it blank to hide the feature —
+uploading still works. You pay per generation. The model is set in
+`lib/anthropic.ts` (`MODEL`); it defaults to `claude-opus-4-8` — switch to
+`claude-sonnet-5` there for lower cost and faster generation.
+
 ## 3. Create the database + storage
 
 In the Supabase dashboard, open **SQL Editor → New query** and run, in order:
