@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Exit Ticket</title>
+<!--
+  Sample activity for "Share & Collect".
+  Demonstrates the stardrop:* protocol the host page listens for:
+    - post "stardrop:ready" on load
+    - receive "stardrop:init" { initialData, readOnly } and restore
+    - post "stardrop:progress" { data:{answers,responses} } as they type
+    - post "stardrop:complete" { data } when they finish
+  The `responses` array (id/prompt/type/answer) is what powers the word walls.
+-->
+<style>
+  :root{--bg:#fbf9f6;--ink:#2b2723;--muted:#6f675d;--line:#ece7df;--accent:#d97a3c;}
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",sans-serif;line-height:1.6;padding:28px 20px;}
+  .wrap{max-width:640px;margin:0 auto;}
+  h1{font-size:26px;margin:0 0 6px;}
+  p.intro{color:var(--muted);margin:0 0 22px;}
+  .field{background:#fff;border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:12px;padding:16px 18px;margin-bottom:14px;}
+  label{display:block;font-weight:600;margin-bottom:8px;}
+  input[type=text],textarea{width:100%;border:1px solid var(--line);border-radius:8px;font:inherit;padding:9px 11px;background:var(--bg);color:var(--ink);}
+  textarea{min-height:70px;resize:vertical;}
+  input:focus,textarea:focus{outline:none;border-color:var(--accent);}
+  .row{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:18px;}
+  .prog{font-size:14px;color:var(--muted);}
+  button{background:var(--accent);color:#fff;border:0;padding:10px 20px;border-radius:9px;font:inherit;font-weight:600;cursor:pointer;}
+  button:disabled{opacity:.4;cursor:not-allowed;}
+  .banner{display:none;margin-top:14px;padding:10px 14px;border-radius:9px;background:rgba(217,122,60,.1);color:var(--accent);font-weight:600;}
+  .banner.show{display:block;}
+</style>
+</head>
+<body>
+<main class="wrap">
+  <h1>Exit ticket</h1>
+  <p class="intro">Answer before you go. Your teacher sees these live.</p>
+
+  <div class="field">
+    <label for="word">One word for how today's class felt</label>
+    <input type="text" id="word" placeholder="curious, tired, proud…">
+  </div>
+
+  <div class="field">
+    <label for="learned">One thing you learned</label>
+    <textarea id="learned" placeholder="I learned that…"></textarea>
+  </div>
+
+  <div class="field">
+    <label for="question">One question you still have</label>
+    <textarea id="question" placeholder="I'm still wondering…"></textarea>
+  </div>
+
+  <div class="row">
+    <span class="prog" id="prog">0 of 3 answered</span>
+    <button id="done" disabled>Turn in</button>
+  </div>
+  <div class="banner" id="banner">✓ Turned in! You can still edit and it re-saves.</div>
+</main>
+
+<script>
+  var PROMPTS = {
+    word: "One word for how class felt",
+    learned: "One thing you learned",
+    question: "One question you still have"
+  };
+  var answers = { word: "", learned: "", question: "" };
+  var readOnly = false;
+
+  var els = {
+    word: document.getElementById("word"),
+    learned: document.getElementById("learned"),
+    question: document.getElementById("question")
+  };
+  var progEl = document.getElementById("prog");
+  var doneBtn = document.getElementById("done");
+  var banner = document.getElementById("banner");
+
+  function count(){ return Object.keys(answers).filter(function(k){ return answers[k].trim(); }).length; }
+
+  function buildData(){
+    var responses = Object.keys(PROMPTS).map(function(key){
+      return { id: key, prompt: PROMPTS[key], type: "short_answer", answer: answers[key].trim() };
+    });
+    return { answers: answers, responses: responses };
+  }
+
+  function update(){
+    var n = count();
+    progEl.textContent = n + " of 3 answered";
+    doneBtn.disabled = readOnly || n < 3;
+  }
+
+  var t = null;
+  function save(){
+    if(t) clearTimeout(t);
+    t = setTimeout(function(){
+      window.parent.postMessage({ type: "stardrop:progress", data: buildData() }, "*");
+    }, 700);
+  }
+
+  Object.keys(els).forEach(function(key){
+    els[key].addEventListener("input", function(){
+      if(readOnly) return;
+      answers[key] = els[key].value;
+      update(); save();
+    });
+  });
+
+  doneBtn.addEventListener("click", function(){
+    if(readOnly) return;
+    window.parent.postMessage({ type: "stardrop:complete", data: buildData() }, "*");
+    banner.classList.add("show");
+  });
+
+  window.addEventListener("message", function(event){
+    var msg = event.data;
+    if(!msg || typeof msg !== "object" || msg.type !== "stardrop:init") return;
+    if(msg.initialData && msg.initialData.answers){
+      Object.keys(answers).forEach(function(k){
+        answers[k] = typeof msg.initialData.answers[k] === "string" ? msg.initialData.answers[k] : "";
+        els[k].value = answers[k];
+      });
+    }
+    readOnly = !!msg.readOnly;
+    Object.keys(els).forEach(function(k){ els[k].disabled = readOnly; });
+    update();
+  });
+
+  // Tell the host we're ready to receive any saved answers.
+  window.parent.postMessage({ type: "stardrop:ready" }, "*");
+  update();
+</script>
+</body>
+</html>
