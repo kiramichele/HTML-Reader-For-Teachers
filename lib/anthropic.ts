@@ -115,8 +115,9 @@ export async function generateActivity(
   }
 
   try {
-    // Non-streaming: the SDK scales the request timeout for large max_tokens.
-    const message = await client.messages.create({
+    // Stream and collect the final message. The SDK requires streaming at this
+    // max_tokens (a non-streaming request could exceed the 10-minute HTTP cap).
+    const stream = client.messages.stream({
       model: MODEL,
       max_tokens: 32000,
       system: SYSTEM,
@@ -124,6 +125,7 @@ export async function generateActivity(
       tool_choice: { type: "tool", name: "emit_activity" },
       messages: [{ role: "user", content: prompt }],
     });
+    const message = await stream.finalMessage();
 
     const block = message.content.find((b) => b.type === "tool_use");
     if (!block || block.type !== "tool_use") {
