@@ -101,7 +101,8 @@ const TOOL: Anthropic.Tool = {
 };
 
 export async function generateActivity(
-  prompt: string
+  prompt: string,
+  styleHint?: string
 ): Promise<
   { ok: true; activity: GeneratedActivity } | { ok: false; error: string }
 > {
@@ -123,7 +124,14 @@ export async function generateActivity(
       system: SYSTEM,
       tools: [TOOL],
       tool_choice: { type: "tool", name: "emit_activity" },
-      messages: [{ role: "user", content: prompt }],
+      messages: [
+        {
+          role: "user",
+          content: styleHint?.trim()
+            ? `${prompt}\n\nVisual style preference: ${styleHint.trim()}`
+            : prompt,
+        },
+      ],
     });
     const message = await stream.finalMessage();
 

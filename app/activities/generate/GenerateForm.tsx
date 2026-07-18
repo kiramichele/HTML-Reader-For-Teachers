@@ -9,6 +9,7 @@ import {
   saveGeneratedActivity,
   type GenerateState,
 } from "../actions";
+import { STYLES } from "@/lib/styles";
 
 const initialState: GenerateState = { status: "idle" };
 
@@ -36,10 +37,12 @@ function GenerateButton({ label }: { label: string }) {
 export function GenerateForm() {
   const [state, formAction] = useActionState(generateActivityDraft, initialState);
   const [prompt, setPrompt] = useState("");
+  const [style, setStyle] = useState("auto");
 
   return (
     <div className="space-y-6">
       <form action={formAction} className="space-y-3">
+        <input type="hidden" name="style" value={style} />
         <textarea
           name="prompt"
           value={prompt}
@@ -63,6 +66,27 @@ export function GenerateForm() {
             </button>
           ))}
         </div>
+        <div>
+          <p className="text-sm text-muted mb-2">Style</p>
+          <div className="flex flex-wrap gap-2">
+            {STYLES.map((s) => (
+              <button
+                key={s.id}
+                type="button"
+                onClick={() => setStyle(s.id)}
+                aria-pressed={style === s.id}
+                className={`text-sm px-3 py-1.5 rounded-full border transition ${
+                  style === s.id
+                    ? "border-accent bg-accent/10 text-ink"
+                    : "border-border bg-surface text-muted hover:border-accent"
+                }`}
+              >
+                {s.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
         <div className="flex items-center gap-3">
           <GenerateButton
             label={state.status === "ready" ? "Regenerate" : "Generate activity"}

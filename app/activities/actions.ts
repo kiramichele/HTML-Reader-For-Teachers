@@ -9,6 +9,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { makeSlug } from "@/lib/slug";
 import { generateActivity, type GeneratedActivity } from "@/lib/anthropic";
 import { getAccess } from "@/lib/billing";
+import { styleHint } from "@/lib/styles";
 
 const BUCKET = "activities";
 
@@ -143,7 +144,12 @@ export async function generateActivityDraft(
     return { status: "error", error: parsed.error.issues[0]?.message ?? "Invalid prompt" };
   }
 
-  const result = await generateActivity(parsed.data);
+  const hint = styleHint(
+    typeof formData.get("style") === "string"
+      ? (formData.get("style") as string)
+      : "auto"
+  );
+  const result = await generateActivity(parsed.data, hint);
   if (!result.ok) return { status: "error", error: result.error };
 
   return { status: "ready", activity: result.activity, prompt: parsed.data };
