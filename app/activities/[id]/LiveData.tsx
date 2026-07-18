@@ -38,6 +38,39 @@ function itemsOf(data: Json | null): Item[] {
   return out;
 }
 
+type Answer = { name: string; answer: string };
+type Question = { prompt: string; type?: string; answers: Answer[] };
+
+// Choice-style field types Claude (or an uploaded activity) may declare.
+function isChoiceType(t?: string): boolean {
+  return !!t && /choice|radio|select|poll|multiple|option/i.test(t);
+}
+
+// Pick a visualization: a bar chart when answers cluster into a small set of
+// options (a poll), otherwise a word wall for open-ended text.
+function chooseViz(q: Question): "bar" | "wall" {
+  const vals = q.answers.map((a) => a.answer).filter(Boolean);
+  if (vals.length === 0) return "wall";
+  if (isChoiceType(q.type)) return "bar";
+
+  const distinct = new Set(vals);
+  const longest = vals.reduce((m, v) => Math.max(m, v.length), 0);
+  const allShort = longest <= 40;
+  const fewOptions = distinct.size <= 10;
+  const hasRepeats = distinct.size < vals.length; // at least one option repeats
+  // Infer a poll only once answers are short, few, and actually clustering —
+  // so a set of all-different one-word answers stays a word wall.
+  return vals.length >= 3 && allShort && fewOptions && hasRepeats ? "bar" : "wall";
+}
+
+function tally(answers: Answer[]): { label: string; count: number }[] {
+  const counts = new Map<string, number>();
+  for (const a of answers) counts.set(a.answer, (counts.get(a.answer) ?? 0) + 1);
+  return Array.from(counts.entries())
+    .map(([label, count]) => ({ label, count }))
+    .sort((a, b) => b.count - a.count);
+}
+
 export function LiveData({
   activityId,
   initial,
@@ -77,20 +110,18 @@ export function LiveData({
     };
   }, [activityId]);
 
-  // Group every answer under its prompt -> one "word wall" per question.
-  const walls = useMemo(() => {
-    const map = new Map<
-      string,
-      { prompt: string; answers: { name: string; answer: string }[] }
-    >();
-    // Keep prompt order stable by walking the most-complete blob first.
+  // Group every answer under its prompt, one question card each.
+  const questions = useMemo(() => {
+    const map = new Map<string, Question>();
     for (const row of rows) {
       for (const item of itemsOf(row.structured_data)) {
         if (!item.answer.trim()) continue;
-        if (!map.has(item.id)) map.set(item.id, { prompt: item.prompt, answers: [] });
+        if (!map.has(item.id)) {
+          map.set(item.id, { prompt: item.prompt, type: item.type, answers: [] });
+        }
         map.get(item.id)!.answers.push({
           name: row.student_name,
-          answer: item.answer,
+          answer: item.answer.trim(),
         });
       }
     }
@@ -130,31 +161,8 @@ export function LiveData({
         </div>
       ) : (
         <div className="space-y-5">
-          {walls.map((wall, i) => (
-            <div
-              key={i}
-              className="rounded-cozy border border-border bg-surface p-5"
-            >
-              <h3 className="text-sm font-medium text-muted mb-3">
-                {wall.prompt}
-                <span className="text-faint font-normal">
-                  {" "}
-                  · {wall.answers.length}
-                </span>
-              </h3>
-              <div className="flex flex-wrap gap-2">
-                {wall.answers.map((a, j) => (
-                  <span
-                    key={j}
-                    title={`${a.name}: ${a.answer}`}
-                    className="inline-block max-w-full px-3 py-1.5 rounded-full bg-background border border-border text-sm"
-                  >
-                    <span className="text-faint text-xs mr-1.5">{a.name}</span>
-                    <span className="break-words">{a.answer}</span>
-                  </span>
-                ))}
-              </div>
-            </div>
+          {questions.map((q, i) => (
+            <QuestionCard key={i} q={q} />
           ))}
 
           <details className="rounded-cozy border border-border bg-surface p-5">
@@ -184,6 +192,66 @@ export function LiveData({
           </details>
         </div>
       )}
+    </div>
+  );
+}
+
+function QuestionCard({ q }: { q: Question }) {
+  const viz = chooseViz(q);
+
+  return (
+    <div className="rounded-cozy border border-border bg-surface p-5">
+      <h3 className="text-sm font-medium text-muted mb-3">
+        {q.prompt}
+        <span className="text-faint font-normal"> · {q.answers.length}</span>
+      </h3>
+
+      {viz === "bar" ? (
+        <BarChart answers={q.answers} />
+      ) : (
+        <div className="flex flex-wrap gap-2">
+          {q.answers.map((a, j) => (
+            <span
+              key={j}
+              title={`${a.name}: ${a.answer}`}
+              className="inline-block max-w-full px-3 py-1.5 rounded-full bg-background border border-border text-sm"
+            >
+              <span className="text-faint text-xs mr-1.5">{a.name}</span>
+              <span className="break-words">{a.answer}</span>
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function BarChart({ answers }: { answers: Answer[] }) {
+  const rows = tally(answers);
+  const total = answers.length;
+  const max = Math.max(...rows.map((r) => r.count), 1);
+
+  return (
+    <div className="space-y-2.5">
+      {rows.map((r, i) => {
+        const pct = Math.round((r.count / total) * 100);
+        return (
+          <div key={i}>
+            <div className="flex items-baseline justify-between gap-3 mb-1 text-sm">
+              <span className="break-words">{r.label}</span>
+              <span className="text-faint text-xs shrink-0 tabular-nums">
+                {r.count} · {pct}%
+              </span>
+            </div>
+            <div className="h-2.5 rounded-full bg-background overflow-hidden">
+              <div
+                className="h-full rounded-full bg-accent transition-[width] duration-300"
+                style={{ width: `${(r.count / max) * 100}%` }}
+              />
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }

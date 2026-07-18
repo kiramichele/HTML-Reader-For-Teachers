@@ -49,6 +49,7 @@ When the activity should collect student input, wire it to the host page using t
   { answers: { <field_id>: <string value>, ... },
     responses: [ { id: <field_id>, prompt: <human question text>, type: "short_answer", answer: <string value> }, ... ] }
   Use a stable snake_case id for each collected field. The "prompt" is the human-readable question. This structure powers the teacher's charts/word-walls, so label prompts clearly.
+  - Set each response's "type" to guide how the teacher's dashboard visualizes it: use "multiple_choice" for poll/radio/select questions with a fixed set of options (the teacher sees a live bar chart of the tallies), and "short_answer" for open-ended text (the teacher sees a word wall). For a multiple-choice answer, put the chosen option's exact text in "answer".
 - Keep a single source of truth for answers and rebuild buildData() from it each time.
 
 WHEN NO DATA IS NEEDED (a plain slideshow / reference / non-collecting game)
