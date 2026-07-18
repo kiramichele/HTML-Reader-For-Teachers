@@ -1,13 +1,19 @@
 import Link from "next/link";
-import { Plus, FileText, Database, LogOut, Sparkles } from "lucide-react";
+import { Plus, FileText, Database, LogOut, Sparkles, CreditCard } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { signOut } from "@/app/login/actions";
+import { getAccess } from "@/lib/billing";
+import { openPortal, startCheckout } from "@/app/billing/actions";
+
+export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
+
+  const access = await getAccess();
 
   const { data: activities } = await supabase
     .from("activities")
@@ -31,6 +37,41 @@ export default async function DashboardPage() {
       </header>
 
       <div className="max-w-3xl mx-auto px-6 py-6">
+        {access?.billingEnforced && (
+          <div className="rounded-cozy border border-border bg-surface px-4 py-3 mb-6 flex items-center justify-between gap-3 flex-wrap text-sm">
+            {access.subscribed ? (
+              <span className="inline-flex items-center gap-2">
+                <CreditCard className="w-4 h-4 text-sage" /> Subscribed — AI
+                generation active.
+              </span>
+            ) : access.trialActive ? (
+              <span className="inline-flex items-center gap-2 text-muted">
+                <CreditCard className="w-4 h-4 text-accent" /> Free trial:{" "}
+                <strong className="text-ink">{access.daysLeft}</strong>{" "}
+                {access.daysLeft === 1 ? "day" : "days"} of AI generation left.
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-2 text-muted">
+                <CreditCard className="w-4 h-4 text-accent" /> Trial ended —
+                subscribe to keep generating with Claude.
+              </span>
+            )}
+            {access.subscribed ? (
+              <form action={openPortal}>
+                <button className="text-accent hover:underline">
+                  Manage subscription
+                </button>
+              </form>
+            ) : (
+              <form action={startCheckout}>
+                <button className="px-3 py-1.5 rounded-cozy bg-accent text-accent-ink font-medium hover:opacity-90 transition">
+                  Subscribe · $10/mo
+                </button>
+              </form>
+            )}
+          </div>
+        )}
+
         <div className="flex items-center justify-between gap-3 mb-6 flex-wrap">
           <h1 className="text-2xl font-semibold">My activities</h1>
           <div className="flex items-center gap-2">

@@ -87,6 +87,15 @@ export function LoginForm({ next }: { next?: string }) {
           <p className="text-sm text-red-600 dark:text-red-400">{state.error}</p>
         ) : null}
 
+        {mode === "signup" ? (
+          <p className="text-xs text-muted leading-relaxed">
+            Free for 30 days. After that, <strong>AI generation</strong> is{" "}
+            <strong>$10/month</strong> — the Claude AI runs aren&apos;t free, so
+            the subscription covers them. Everything else (uploading your own
+            HTML, sharing, join codes, collecting student data) stays free.
+          </p>
+        ) : null}
+
         <SubmitButton label={mode === "signin" ? "Sign in" : "Create account"} />
       </form>
     </div>

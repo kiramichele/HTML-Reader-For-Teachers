@@ -36,6 +36,7 @@ In the Supabase dashboard, open **SQL Editor → New query** and run, in order:
 
 1. `supabase/schema.sql`  — tables, RLS, realtime
 2. `supabase/storage.sql` — the public `activities` storage bucket
+3. `supabase/billing.sql` — the `billing` table (only needed if you set up Stripe)
 
 ## 4. Turn on email/password auth
 
@@ -51,6 +52,31 @@ npm run dev
 ```
 
 Open <http://localhost:3000>.
+
+## 6. (Optional) Billing — $10/month after a 30-day trial
+
+Gates only **AI generation** (the Anthropic cost). Upload, sharing, join codes,
+and data collection are always free. Skip this whole section to leave generation
+open (the trial banner just won't enforce anything).
+
+1. Run `supabase/billing.sql` (step 3 above).
+2. In the **Stripe dashboard** (test mode first):
+   - **Products → Add product** → recurring price, **$10 / month** → copy the
+     **Price ID** (`price_...`) into `STRIPE_PRICE_ID`.
+   - **Developers → API keys** → copy the **Secret key** into `STRIPE_SECRET_KEY`.
+   - **Developers → Webhooks → Add endpoint** → URL
+     `https://YOUR_DOMAIN/api/stripe/webhook`, subscribe to
+     `checkout.session.completed`, `customer.subscription.created`,
+     `customer.subscription.updated`, `customer.subscription.deleted`,
+     `invoice.payment_failed` → copy the **Signing secret** (`whsec_...`) into
+     `STRIPE_WEBHOOK_SECRET`.
+   - **Settings → Billing → Customer portal** → activate it (lets teachers
+     cancel/manage).
+3. Add the three `STRIPE_*` vars to `.env.local` (and to Vercel's env vars for
+   production). Redeploy.
+
+Local webhook testing: `stripe listen --forward-to localhost:3000/api/stripe/webhook`
+and use the `whsec_` it prints.
 
 ## How it works (quick tour)
 

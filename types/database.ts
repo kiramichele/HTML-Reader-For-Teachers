@@ -76,6 +76,30 @@ export type Database = {
           },
         ];
       };
+      billing: {
+        Row: {
+          user_id: string;
+          stripe_customer_id: string | null;
+          status: string;
+          current_period_end: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          user_id: string;
+          stripe_customer_id?: string | null;
+          status?: string;
+          current_period_end?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          user_id?: string;
+          stripe_customer_id?: string | null;
+          status?: string;
+          current_period_end?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: {
       [_ in never]: never;

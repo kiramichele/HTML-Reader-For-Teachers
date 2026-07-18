@@ -39,8 +39,15 @@ export async function middleware(request: NextRequest) {
   const isActivityFile = path.startsWith("/a/");
   // Students enter a class code here — no login.
   const isJoin = path === "/join";
+  // Stripe posts subscription events here — no user session.
+  const isStripeWebhook = path === "/api/stripe/webhook";
   const isPublic =
-    path === "/" || isLoginPage || isPlayer || isActivityFile || isJoin;
+    path === "/" ||
+    isLoginPage ||
+    isPlayer ||
+    isActivityFile ||
+    isJoin ||
+    isStripeWebhook;
 
   // Not signed in + accessing a protected route -> /login, remembering where
   // they were headed so we can bounce them back after sign-in.
