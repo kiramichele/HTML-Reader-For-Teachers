@@ -1,6 +1,5 @@
 import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { activityPublicUrl } from "@/lib/storage";
 import { Player } from "./Player";
 
 export default async function PlayerPage({
@@ -15,20 +14,22 @@ export default async function PlayerPage({
   const admin = createAdminClient();
   const { data: activity } = await admin
     .from("activities")
-    .select("id, title, storage_path, collect_data, share_slug")
+    .select("id, title, collect_data, share_slug")
     .eq("share_slug", slug)
     .single();
 
   if (!activity) notFound();
 
-  const htmlUrl = activityPublicUrl(activity.storage_path);
+  // Served from our own route with an explicit text/html content type + a CSP
+  // sandbox header (see app/a/[slug]/route.ts), so no allow-same-origin needed.
+  const htmlUrl = `/a/${activity.share_slug}`;
 
   // Plain slideshow / no data collection — just show it full-bleed.
   if (!activity.collect_data) {
     return (
       <iframe
         src={htmlUrl}
-        sandbox="allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-same-origin"
+        sandbox="allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox"
         title={activity.title}
         style={{
           position: "fixed",

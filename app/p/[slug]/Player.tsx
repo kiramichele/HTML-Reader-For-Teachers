@@ -191,7 +191,7 @@ export function Player({
       <iframe
         ref={iframeRef}
         src={htmlUrl}
-        sandbox="allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-same-origin"
+        sandbox="allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox"
         title={title}
         className="flex-1 w-full border-0 bg-white"
       />
