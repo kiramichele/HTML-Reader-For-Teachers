@@ -20,6 +20,11 @@ create table if not exists public.activities (
 
 create index if not exists activities_teacher_id_idx on public.activities (teacher_id);
 
+-- Added later; safe to re-run. `prompt` stores the AI generation prompt (for
+-- showing it + "Duplicate & edit"); `closed` stops accepting new responses.
+alter table public.activities add column if not exists prompt text;
+alter table public.activities add column if not exists closed boolean not null default false;
+
 create table if not exists public.responses (
   id              uuid primary key default gen_random_uuid(),
   activity_id     uuid not null references public.activities (id) on delete cascade,

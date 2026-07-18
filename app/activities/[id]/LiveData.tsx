@@ -4,6 +4,14 @@ import { useEffect, useMemo, useState } from "react";
 import { Users, CircleCheck, Radio } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { Json } from "@/types/database";
+import {
+  itemsOf,
+  groupQuestions,
+  chooseViz,
+  tally,
+  type Answer,
+  type Question,
+} from "@/lib/viz";
 
 export type ResponseRow = {
   id: string;
@@ -12,64 +20,6 @@ export type ResponseRow = {
   status: "draft" | "complete";
   updated_at: string;
 };
-
-type Item = { id: string; prompt: string; type?: string; answer: string };
-
-// Pull the [{id, prompt, type, answer}] list out of a student's saved blob.
-function itemsOf(data: Json | null): Item[] {
-  if (!data || typeof data !== "object" || Array.isArray(data)) return [];
-  const responses = (data as Record<string, Json | undefined>).responses;
-  if (!Array.isArray(responses)) return [];
-  const out: Item[] = [];
-  for (const r of responses) {
-    if (!r || typeof r !== "object" || Array.isArray(r)) continue;
-    const o = r as Record<string, Json | undefined>;
-    const id = typeof o.id === "string" ? o.id : "";
-    const prompt = typeof o.prompt === "string" ? o.prompt : id;
-    const answer =
-      typeof o.answer === "string"
-        ? o.answer
-        : o.answer == null
-          ? ""
-          : String(o.answer);
-    const type = typeof o.type === "string" ? o.type : undefined;
-    if (id) out.push({ id, prompt, type, answer });
-  }
-  return out;
-}
-
-type Answer = { name: string; answer: string };
-type Question = { prompt: string; type?: string; answers: Answer[] };
-
-// Choice-style field types Claude (or an uploaded activity) may declare.
-function isChoiceType(t?: string): boolean {
-  return !!t && /choice|radio|select|poll|multiple|option/i.test(t);
-}
-
-// Pick a visualization: a bar chart when answers cluster into a small set of
-// options (a poll), otherwise a word wall for open-ended text.
-function chooseViz(q: Question): "bar" | "wall" {
-  const vals = q.answers.map((a) => a.answer).filter(Boolean);
-  if (vals.length === 0) return "wall";
-  if (isChoiceType(q.type)) return "bar";
-
-  const distinct = new Set(vals);
-  const longest = vals.reduce((m, v) => Math.max(m, v.length), 0);
-  const allShort = longest <= 40;
-  const fewOptions = distinct.size <= 10;
-  const hasRepeats = distinct.size < vals.length; // at least one option repeats
-  // Infer a poll only once answers are short, few, and actually clustering —
-  // so a set of all-different one-word answers stays a word wall.
-  return vals.length >= 3 && allShort && fewOptions && hasRepeats ? "bar" : "wall";
-}
-
-function tally(answers: Answer[]): { label: string; count: number }[] {
-  const counts = new Map<string, number>();
-  for (const a of answers) counts.set(a.answer, (counts.get(a.answer) ?? 0) + 1);
-  return Array.from(counts.entries())
-    .map(([label, count]) => ({ label, count }))
-    .sort((a, b) => b.count - a.count);
-}
 
 export function LiveData({
   activityId,
@@ -111,22 +61,7 @@ export function LiveData({
   }, [activityId]);
 
   // Group every answer under its prompt, one question card each.
-  const questions = useMemo(() => {
-    const map = new Map<string, Question>();
-    for (const row of rows) {
-      for (const item of itemsOf(row.structured_data)) {
-        if (!item.answer.trim()) continue;
-        if (!map.has(item.id)) {
-          map.set(item.id, { prompt: item.prompt, type: item.type, answers: [] });
-        }
-        map.get(item.id)!.answers.push({
-          name: row.student_name,
-          answer: item.answer.trim(),
-        });
-      }
-    }
-    return Array.from(map.values());
-  }, [rows]);
+  const questions = useMemo(() => groupQuestions(rows), [rows]);
 
   const completeCount = rows.filter((r) => r.status === "complete").length;
 

@@ -17,6 +17,8 @@ export type Database = {
           storage_path: string;
           collect_data: boolean;
           share_slug: string;
+          prompt: string | null;
+          closed: boolean;
           created_at: string;
         };
         Insert: {
@@ -26,6 +28,8 @@ export type Database = {
           storage_path: string;
           collect_data?: boolean;
           share_slug: string;
+          prompt?: string | null;
+          closed?: boolean;
           created_at?: string;
         };
         Update: {
@@ -35,6 +39,8 @@ export type Database = {
           storage_path?: string;
           collect_data?: boolean;
           share_slug?: string;
+          prompt?: string | null;
+          closed?: boolean;
           created_at?: string;
         };
         Relationships: [];

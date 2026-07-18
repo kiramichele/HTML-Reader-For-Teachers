@@ -20,7 +20,7 @@ export default async function PlayerPage({
   const admin = createAdminClient();
   const { data: activity } = await admin
     .from("activities")
-    .select("id, title, storage_path, collect_data, share_slug")
+    .select("id, title, storage_path, collect_data, share_slug, closed")
     .eq("share_slug", slug)
     .single();
 
@@ -54,6 +54,11 @@ export default async function PlayerPage({
   }
 
   return (
-    <Player slug={activity.share_slug} html={html} title={activity.title} />
+    <Player
+      slug={activity.share_slug}
+      html={html}
+      title={activity.title}
+      closed={activity.closed}
+    />
   );
 }

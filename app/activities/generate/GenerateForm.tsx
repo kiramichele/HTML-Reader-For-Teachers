@@ -34,9 +34,9 @@ function GenerateButton({ label }: { label: string }) {
   );
 }
 
-export function GenerateForm() {
+export function GenerateForm({ initialPrompt = "" }: { initialPrompt?: string }) {
   const [state, formAction] = useActionState(generateActivityDraft, initialState);
-  const [prompt, setPrompt] = useState("");
+  const [prompt, setPrompt] = useState(initialPrompt);
   const [style, setStyle] = useState("auto");
 
   return (
@@ -103,6 +103,7 @@ export function GenerateForm() {
         <Preview
           key={state.activity.html.length + state.activity.title}
           activity={state.activity}
+          prompt={state.prompt}
         />
       )}
     </div>
@@ -111,8 +112,10 @@ export function GenerateForm() {
 
 function Preview({
   activity,
+  prompt,
 }: {
   activity: Extract<GenerateState, { status: "ready" }>["activity"];
+  prompt: string;
 }) {
   const router = useRouter();
   const [saving, startSaving] = useTransition();
@@ -125,6 +128,7 @@ function Preview({
         title: activity.title,
         html: activity.html,
         collectData: activity.collectsData,
+        prompt,
       });
       if (res.ok && res.id) router.push(`/activities/${res.id}`);
       else setError(res.error ?? "Couldn't save");

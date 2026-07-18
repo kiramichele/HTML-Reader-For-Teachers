@@ -19,6 +19,7 @@ async function persistHtmlActivity(opts: {
   title: string;
   html: string;
   collectData: boolean;
+  prompt?: string | null;
 }): Promise<{ ok: true; id: string } | { ok: false; error: string }> {
   const supabase = await createClient();
   const admin = createAdminClient();
@@ -45,6 +46,7 @@ async function persistHtmlActivity(opts: {
     storage_path: storagePath,
     collect_data: opts.collectData,
     share_slug: makeSlug(),
+    prompt: opts.prompt ?? null,
   });
   if (insertErr) {
     await admin.storage.from(BUCKET).remove([storagePath]);
@@ -164,12 +166,14 @@ const saveSchema = z.object({
   title: z.string().trim().min(1).max(200),
   html: z.string().min(1).max(1_000_000),
   collectData: z.boolean(),
+  prompt: z.string().max(4000).optional(),
 });
 
 export async function saveGeneratedActivity(input: {
   title: string;
   html: string;
   collectData: boolean;
+  prompt?: string;
 }): Promise<{ ok: boolean; id?: string; error?: string }> {
   const supabase = await createClient();
   const {
@@ -185,11 +189,61 @@ export async function saveGeneratedActivity(input: {
     title: parsed.data.title,
     html: parsed.data.html,
     collectData: parsed.data.collectData,
+    prompt: parsed.data.prompt ?? null,
   });
   if (!result.ok) return { ok: false, error: result.error };
 
   revalidatePath("/dashboard");
   return { ok: true, id: result.id };
+}
+
+// ---------------------------------------------------------------------
+// Reset / close (manage a running activity)
+// ---------------------------------------------------------------------
+
+async function ownActivity(id: string) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return null;
+  // RLS restricts this select to the owner.
+  const { data } = await supabase
+    .from("activities")
+    .select("id")
+    .eq("id", id)
+    .single();
+  return data ? { userId: user.id } : null;
+}
+
+// Delete all collected responses for an activity (reuse it next class period).
+export async function resetResponses(formData: FormData) {
+  const id = formData.get("id");
+  if (typeof id !== "string") return;
+  if (!(await ownActivity(id))) return;
+
+  const admin = createAdminClient();
+  await admin.from("responses").delete().eq("activity_id", id);
+
+  revalidatePath(`/activities/${id}`);
+}
+
+// Stop / resume accepting new student responses.
+export async function setActivityClosed(formData: FormData) {
+  const id = formData.get("id");
+  const closed = formData.get("closed") === "true";
+  if (typeof id !== "string") return;
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return;
+
+  // RLS owner-update policy enforces ownership.
+  await supabase.from("activities").update({ closed }).eq("id", id);
+
+  revalidatePath(`/activities/${id}`);
 }
 
 // ---------------------------------------------------------------------

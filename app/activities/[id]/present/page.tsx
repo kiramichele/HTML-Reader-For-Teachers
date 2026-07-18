@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getOrigin, buildJoinInfo } from "@/lib/join";
+import type { ResponseRow } from "../LiveData";
+import { PresentScreen } from "./PresentScreen";
 
 export const dynamic = "force-dynamic";
 
@@ -17,7 +19,7 @@ export default async function PresentPage({
   // RLS restricts this to the owner.
   const { data: activity } = await supabase
     .from("activities")
-    .select("id, title, share_slug")
+    .select("id, title, share_slug, collect_data")
     .eq("id", id)
     .single();
 
@@ -26,6 +28,14 @@ export default async function PresentPage({
   const origin = await getOrigin();
   const join = await buildJoinInfo(activity.share_slug, origin, 320);
   const joinHost = join.joinUrl.replace(/^https?:\/\//, "");
+
+  const { data: responses } = activity.collect_data
+    ? await supabase
+        .from("responses")
+        .select("id, student_name, structured_data, status, updated_at")
+        .eq("activity_id", id)
+        .order("updated_at", { ascending: false })
+    : { data: [] as ResponseRow[] };
 
   return (
     <main className="min-h-screen flex flex-col">
@@ -38,35 +48,15 @@ export default async function PresentPage({
         </Link>
       </div>
 
-      <div className="flex-1 flex flex-col items-center justify-center px-6 pb-16 text-center">
-        <h1 className="text-2xl sm:text-3xl font-semibold text-muted mb-1">
-          {activity.title}
-        </h1>
-        <p className="text-lg sm:text-xl text-muted mb-8">
-          Join at{" "}
-          <span className="font-semibold text-ink">{joinHost}</span>
-        </p>
-
-        <div className="flex flex-col sm:flex-row items-center gap-8 sm:gap-14">
-          <div>
-            <p className="text-sm uppercase tracking-widest text-muted mb-2">
-              Class code
-            </p>
-            <p className="font-mono font-bold tracking-[0.15em] text-5xl sm:text-7xl">
-              {join.code}
-            </p>
-          </div>
-
-          <div className="flex flex-col items-center">
-            <div
-              className="bg-white p-3 rounded-cozy border border-border"
-              // Locally-generated QR SVG (no external service).
-              dangerouslySetInnerHTML={{ __html: join.qrSvg }}
-            />
-            <p className="text-sm text-muted mt-2">Scan to join</p>
-          </div>
-        </div>
-      </div>
+      <PresentScreen
+        title={activity.title}
+        code={join.code}
+        joinHost={joinHost}
+        qrSvg={join.qrSvg}
+        activityId={activity.id}
+        collectData={activity.collect_data}
+        initialRows={(responses ?? []) as ResponseRow[]}
+      />
     </main>
   );
 }

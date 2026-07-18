@@ -1,10 +1,20 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, ExternalLink, Trash2, MonitorPlay } from "lucide-react";
+import {
+  ArrowLeft,
+  ExternalLink,
+  Trash2,
+  MonitorPlay,
+  Copy,
+  Lock,
+  Unlock,
+  RotateCcw,
+} from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getOrigin, buildJoinInfo } from "@/lib/join";
-import { deleteActivity } from "../actions";
+import { deleteActivity, resetResponses, setActivityClosed } from "../actions";
 import { ShareLink } from "./ShareLink";
+import { ConfirmSubmitButton } from "./ConfirmSubmitButton";
 import { LiveData, type ResponseRow } from "./LiveData";
 
 export const dynamic = "force-dynamic";
@@ -19,7 +29,7 @@ export default async function ActivityPage({
 
   const { data: activity } = await supabase
     .from("activities")
-    .select("id, title, collect_data, share_slug")
+    .select("id, title, collect_data, share_slug, prompt, closed")
     .eq("id", id)
     .single();
 
@@ -87,7 +97,7 @@ export default async function ActivityPage({
           </div>
         </div>
 
-        <div className="rounded-cozy border border-border bg-surface p-5 mb-8">
+        <div className="rounded-cozy border border-border bg-surface p-5 mb-6">
           <p className="text-sm text-muted mb-2">Or share a direct link</p>
           <ShareLink slug={activity.share_slug} />
           <a
@@ -99,6 +109,58 @@ export default async function ActivityPage({
             <ExternalLink className="w-3.5 h-3.5" /> Open the activity
           </a>
         </div>
+
+        {activity.prompt ? (
+          <div className="rounded-cozy border border-border bg-surface p-5 mb-6">
+            <p className="text-sm text-muted mb-2">Made with this prompt</p>
+            <p className="text-sm whitespace-pre-wrap mb-3">{activity.prompt}</p>
+            <Link
+              href={`/activities/generate?from=${activity.id}`}
+              className="inline-flex items-center gap-1.5 text-sm text-accent hover:underline"
+            >
+              <Copy className="w-3.5 h-3.5" /> Duplicate &amp; edit
+            </Link>
+          </div>
+        ) : null}
+
+        {activity.collect_data && (
+          <div className="flex flex-wrap items-center gap-2 mb-4">
+            <form action={setActivityClosed}>
+              <input type="hidden" name="id" value={activity.id} />
+              <input
+                type="hidden"
+                name="closed"
+                value={(!activity.closed).toString()}
+              />
+              <button className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-cozy border border-border bg-surface hover:border-accent transition text-sm">
+                {activity.closed ? (
+                  <>
+                    <Unlock className="w-4 h-4" /> Reopen responses
+                  </>
+                ) : (
+                  <>
+                    <Lock className="w-4 h-4" /> Close responses
+                  </>
+                )}
+              </button>
+            </form>
+            <form action={resetResponses}>
+              <input type="hidden" name="id" value={activity.id} />
+              <ConfirmSubmitButton
+                message="Delete all collected responses for this activity? This can't be undone."
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-cozy border border-border bg-surface text-muted hover:text-red-500 hover:border-red-400 transition text-sm"
+              >
+                <RotateCcw className="w-4 h-4" /> Reset responses
+              </ConfirmSubmitButton>
+            </form>
+            {activity.closed && (
+              <span className="text-xs text-muted">
+                Closed — students can still view, but new answers aren&apos;t
+                saved.
+              </span>
+            )}
+          </div>
+        )}
 
         {activity.collect_data ? (
           <LiveData

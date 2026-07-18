@@ -3,6 +3,7 @@ import { ArrowLeft, Upload, Sparkles, Clock, Check } from "lucide-react";
 import { isAnthropicConfigured } from "@/lib/anthropic";
 import { getAccessSynced } from "@/lib/billing";
 import { PRICE_LABEL, FREE_GENERATIONS, PAID_MONTHLY_LIMIT } from "@/lib/stripe";
+import { createClient } from "@/lib/supabase/server";
 import { startCheckout } from "@/app/billing/actions";
 import { GenerateForm } from "./GenerateForm";
 
@@ -12,14 +13,27 @@ export const dynamic = "force-dynamic";
 export default async function GeneratePage({
   searchParams,
 }: {
-  searchParams: Promise<{ subscribed?: string; canceled?: string }>;
+  searchParams: Promise<{ subscribed?: string; canceled?: string; from?: string }>;
 }) {
   const configured = isAnthropicConfigured();
-  const { subscribed: justSubscribed } = await searchParams;
+  const { subscribed: justSubscribed, from } = await searchParams;
 
   // getAccessSynced reconciles with Stripe when needed, so returning from
   // Checkout reflects immediately without waiting on the webhook.
   const access = await getAccessSynced();
+
+  // "Duplicate & edit" — prefill the prompt from an existing activity (owner
+  // only, via RLS). The generated result is always a brand-new activity.
+  let initialPrompt = "";
+  if (from) {
+    const supabase = await createClient();
+    const { data } = await supabase
+      .from("activities")
+      .select("prompt")
+      .eq("id", from)
+      .single();
+    initialPrompt = data?.prompt ?? "";
+  }
 
   return (
     <main className="min-h-screen">
@@ -75,7 +89,7 @@ export default async function GeneratePage({
                 {access.paidMonthlyLimit} generations left this month.
               </div>
             )}
-            <GenerateForm />
+            <GenerateForm initialPrompt={initialPrompt} />
           </>
         ) : access?.subscribed ? (
           <MonthlyCapCard />

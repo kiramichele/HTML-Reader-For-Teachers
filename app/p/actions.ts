@@ -22,7 +22,7 @@ async function activityBySlug(slug: string) {
   const admin = createAdminClient();
   const { data } = await admin
     .from("activities")
-    .select("id, collect_data")
+    .select("id, collect_data, closed")
     .eq("share_slug", slug)
     .single();
   return data;
@@ -45,6 +45,7 @@ export async function saveResponse(input: {
   const activity = await activityBySlug(parsed.data.slug);
   if (!activity) return { ok: false, error: "Activity not found" };
   if (!activity.collect_data) return { ok: true }; // data collection is off — no-op
+  if (activity.closed) return { ok: true }; // closed — accept the interaction but don't save
 
   const admin = createAdminClient();
   const { error } = await admin.from("responses").upsert(

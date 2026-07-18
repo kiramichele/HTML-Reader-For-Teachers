@@ -25,10 +25,12 @@ export function Player({
   slug,
   html,
   title,
+  closed = false,
 }: {
   slug: string;
   html: string;
   title: string;
+  closed?: boolean;
 }) {
   const [name, setName] = useState("");
   const [entered, setEntered] = useState(false);
@@ -64,6 +66,7 @@ export function Player({
   }
 
   function persist(status: "draft" | "complete", immediate = false) {
+    if (closed) return; // activity closed — don't save (server ignores it too)
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     const run = async () => {
       setSaveState("saving");
@@ -168,7 +171,8 @@ export function Player({
           <span className="font-medium">{nameRef.current}</span>
         </span>
         <span className="min-w-[5rem] text-right">
-          {saveState === "saving" && (
+          {closed && <span className="text-muted">Responses closed</span>}
+          {!closed && saveState === "saving" && (
             <span className="inline-flex items-center gap-1.5 text-muted">
               <Save className="w-3.5 h-3.5 animate-pulse" /> Saving…
             </span>
@@ -183,7 +187,7 @@ export function Player({
               <AlertCircle className="w-3.5 h-3.5" /> Not saved
             </span>
           )}
-          {saveState === "idle" && done && (
+          {!closed && saveState === "idle" && done && (
             <span className="text-sage">All done ✓</span>
           )}
         </span>
