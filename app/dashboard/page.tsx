@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Plus, FileText, Database, LogOut, Sparkles, CreditCard } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { signOut } from "@/app/login/actions";
-import { getAccess } from "@/lib/billing";
+import { getAccessSynced } from "@/lib/billing";
 import { openPortal, startCheckout } from "@/app/billing/actions";
 
 export const dynamic = "force-dynamic";
@@ -13,7 +13,7 @@ export default async function DashboardPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const access = await getAccess();
+  const access = await getAccessSynced();
 
   const { data: activities } = await supabase
     .from("activities")
@@ -59,7 +59,7 @@ export default async function DashboardPage() {
             {access.subscribed ? (
               <form action={openPortal}>
                 <button className="text-accent hover:underline">
-                  Manage subscription
+                  Manage / pause / cancel
                 </button>
               </form>
             ) : (

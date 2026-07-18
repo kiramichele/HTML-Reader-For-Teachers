@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ArrowLeft, Upload, Sparkles, Clock, Check } from "lucide-react";
 import { isAnthropicConfigured } from "@/lib/anthropic";
-import { getAccess } from "@/lib/billing";
+import { getAccessSynced } from "@/lib/billing";
 import { PRICE_LABEL, TRIAL_DAYS } from "@/lib/stripe";
 import { startCheckout } from "@/app/billing/actions";
 import { GenerateForm } from "./GenerateForm";
@@ -15,8 +15,11 @@ export default async function GeneratePage({
   searchParams: Promise<{ subscribed?: string; canceled?: string }>;
 }) {
   const configured = isAnthropicConfigured();
-  const access = await getAccess();
   const { subscribed: justSubscribed } = await searchParams;
+
+  // getAccessSynced reconciles with Stripe when needed, so returning from
+  // Checkout reflects immediately without waiting on the webhook.
+  const access = await getAccessSynced();
 
   return (
     <main className="min-h-screen">
