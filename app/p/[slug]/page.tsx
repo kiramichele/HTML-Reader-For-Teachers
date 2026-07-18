@@ -2,6 +2,8 @@ import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { Player } from "./Player";
 
+const BUCKET = "activities";
+
 export default async function PlayerPage({
   params,
 }: {
@@ -14,21 +16,26 @@ export default async function PlayerPage({
   const admin = createAdminClient();
   const { data: activity } = await admin
     .from("activities")
-    .select("id, title, collect_data, share_slug")
+    .select("id, title, storage_path, collect_data, share_slug")
     .eq("share_slug", slug)
     .single();
 
   if (!activity) notFound();
 
-  // Served from our own route with an explicit text/html content type + a CSP
-  // sandbox header (see app/a/[slug]/route.ts), so no allow-same-origin needed.
-  const htmlUrl = `/a/${activity.share_slug}`;
+  // Fetch the HTML server-side and render it via the iframe's srcDoc. The
+  // browser parses srcDoc as HTML directly, so this never depends on the
+  // stored file's content type. sandbox (no allow-same-origin) keeps the
+  // activity in an opaque origin — it can't touch the app session.
+  const { data: blob } = await admin.storage
+    .from(BUCKET)
+    .download(activity.storage_path);
+  const html = blob ? await blob.text() : "";
 
   // Plain slideshow / no data collection — just show it full-bleed.
   if (!activity.collect_data) {
     return (
       <iframe
-        src={htmlUrl}
+        srcDoc={html}
         sandbox="allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox"
         title={activity.title}
         style={{
@@ -43,6 +50,6 @@ export default async function PlayerPage({
   }
 
   return (
-    <Player slug={activity.share_slug} htmlUrl={htmlUrl} title={activity.title} />
+    <Player slug={activity.share_slug} html={html} title={activity.title} />
   );
 }

@@ -23,11 +23,11 @@ function isStardropMessage(msg: unknown): msg is StardropMessage {
 
 export function Player({
   slug,
-  htmlUrl,
+  html,
   title,
 }: {
   slug: string;
-  htmlUrl: string;
+  html: string;
   title: string;
 }) {
   const [name, setName] = useState("");
@@ -190,7 +190,7 @@ export function Player({
       </div>
       <iframe
         ref={iframeRef}
-        src={htmlUrl}
+        srcDoc={html}
         sandbox="allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox"
         title={title}
         className="flex-1 w-full border-0 bg-white"
