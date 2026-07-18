@@ -135,8 +135,9 @@ export async function generateActivityDraft(
   if (access && !access.canGenerate) {
     return {
       status: "error",
-      error:
-        "You've used your free generations. Subscribe to keep generating with Claude.",
+      error: access.subscribed
+        ? "You've reached this month's generation limit — it resets on the 1st."
+        : "You've used your free generations. Subscribe to keep generating with Claude.",
     };
   }
 

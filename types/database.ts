@@ -83,6 +83,8 @@ export type Database = {
           status: string;
           current_period_end: string | null;
           trial_generations_used: number;
+          monthly_generations_used: number;
+          monthly_period: string | null;
           updated_at: string;
         };
         Insert: {
@@ -91,6 +93,8 @@ export type Database = {
           status?: string;
           current_period_end?: string | null;
           trial_generations_used?: number;
+          monthly_generations_used?: number;
+          monthly_period?: string | null;
           updated_at?: string;
         };
         Update: {
@@ -99,6 +103,8 @@ export type Database = {
           status?: string;
           current_period_end?: string | null;
           trial_generations_used?: number;
+          monthly_generations_used?: number;
+          monthly_period?: string | null;
           updated_at?: string;
         };
         Relationships: [];

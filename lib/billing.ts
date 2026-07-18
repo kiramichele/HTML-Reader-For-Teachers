@@ -1,18 +1,30 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { FREE_GENERATIONS, isStripeConfigured, getStripe } from "@/lib/stripe";
+import { isStripeConfigured, getStripe } from "@/lib/stripe";
+import { FREE_GENERATIONS, PAID_MONTHLY_LIMIT } from "@/lib/plan";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+
+// Calendar month key (UTC), e.g. "2026-07", for the paid monthly cap window.
+function currentMonthKey(): string {
+  const d = new Date();
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
+}
 
 export type Access = {
   subscribed: boolean;
   status: string; // Stripe subscription status, or "none"
   stripeCustomerId: string | null;
-  // Usage-based free trial.
+  // Usage-based free trial (lifetime).
   freeLimit: number;
   generationsUsed: number;
   generationsLeft: number;
   trialActive: boolean; // still has free generations left
+  // Paid fair-use cap (per calendar month).
+  paidMonthlyLimit: number;
+  monthlyUsed: number;
+  monthlyLeft: number;
+  monthlyCapReached: boolean; // subscribed but out of monthly generations
   canGenerate: boolean;
   // If Stripe isn't configured, we never hard-block generation (trial is just
   // informational) so the owner can keep using it while billing is being set up.
@@ -30,7 +42,9 @@ export async function getAccess(): Promise<Access | null> {
 
   const { data: billing } = await supabase
     .from("billing")
-    .select("status, stripe_customer_id, current_period_end, trial_generations_used")
+    .select(
+      "status, stripe_customer_id, current_period_end, trial_generations_used, monthly_generations_used, monthly_period"
+    )
     .eq("user_id", user.id)
     .maybeSingle();
 
@@ -48,6 +62,14 @@ export async function getAccess(): Promise<Access | null> {
   const generationsLeft = Math.max(0, FREE_GENERATIONS - generationsUsed);
   const trialActive = generationsLeft > 0;
 
+  // Monthly cap only counts within the current calendar month.
+  const monthlyUsed =
+    billing?.monthly_period === currentMonthKey()
+      ? billing?.monthly_generations_used ?? 0
+      : 0;
+  const monthlyLeft = Math.max(0, PAID_MONTHLY_LIMIT - monthlyUsed);
+  const monthlyCapReached = subscribed && monthlyLeft <= 0;
+
   return {
     subscribed,
     status,
@@ -56,16 +78,25 @@ export async function getAccess(): Promise<Access | null> {
     generationsUsed,
     generationsLeft,
     trialActive,
+    paidMonthlyLimit: PAID_MONTHLY_LIMIT,
+    monthlyUsed,
+    monthlyLeft,
+    monthlyCapReached,
     billingEnforced,
-    canGenerate: !billingEnforced || subscribed || trialActive,
+    canGenerate:
+      !billingEnforced || (subscribed ? !monthlyCapReached : trialActive),
   };
 }
 
-// Count one successful AI generation against the free trial. Only tracked when
-// billing is enforced (otherwise the count is irrelevant). Serial per teacher,
-// so a plain read-modify-write is fine.
+// Count one successful AI generation. Subscribers count against the monthly
+// fair-use cap (reset each calendar month); trial users count against their
+// lifetime free allowance. Only tracked when billing is enforced. Serial per
+// teacher, so a plain read-modify-write is fine.
 export async function recordGeneration(): Promise<void> {
   if (!isStripeConfigured()) return;
+
+  const access = await getAccess();
+  if (!access) return;
 
   const supabase = await createClient();
   const {
@@ -74,17 +105,32 @@ export async function recordGeneration(): Promise<void> {
   if (!user) return;
 
   const admin = createAdminClient();
-  const { data } = await admin
-    .from("billing")
-    .select("trial_generations_used")
-    .eq("user_id", user.id)
-    .maybeSingle();
 
-  const used = data?.trial_generations_used ?? 0;
-  // upsert merges: only these columns change; status/customer stay intact.
-  await admin
-    .from("billing")
-    .upsert({ user_id: user.id, trial_generations_used: used + 1 });
+  if (access.subscribed) {
+    const monthKey = currentMonthKey();
+    const { data } = await admin
+      .from("billing")
+      .select("monthly_generations_used, monthly_period")
+      .eq("user_id", user.id)
+      .maybeSingle();
+    const used = data?.monthly_period === monthKey ? data.monthly_generations_used : 0;
+    // upsert merges: only these columns change; status/customer stay intact.
+    await admin.from("billing").upsert({
+      user_id: user.id,
+      monthly_generations_used: used + 1,
+      monthly_period: monthKey,
+    });
+  } else {
+    const { data } = await admin
+      .from("billing")
+      .select("trial_generations_used")
+      .eq("user_id", user.id)
+      .maybeSingle();
+    const used = data?.trial_generations_used ?? 0;
+    await admin
+      .from("billing")
+      .upsert({ user_id: user.id, trial_generations_used: used + 1 });
+  }
 }
 
 // getAccess, but if the teacher has a Stripe customer yet isn't showing active,

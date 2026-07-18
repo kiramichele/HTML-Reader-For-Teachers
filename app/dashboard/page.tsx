@@ -41,8 +41,11 @@ export default async function DashboardPage() {
           <div className="rounded-cozy border border-border bg-surface px-4 py-3 mb-6 flex items-center justify-between gap-3 flex-wrap text-sm">
             {access.subscribed ? (
               <span className="inline-flex items-center gap-2">
-                <CreditCard className="w-4 h-4 text-sage" /> Subscribed — AI
-                generation active.
+                <CreditCard className="w-4 h-4 text-sage" /> Subscribed —{" "}
+                <span className="text-muted">
+                  {access.monthlyUsed}/{access.paidMonthlyLimit} generations this
+                  month
+                </span>
               </span>
             ) : access.trialActive ? (
               <span className="inline-flex items-center gap-2 text-muted">

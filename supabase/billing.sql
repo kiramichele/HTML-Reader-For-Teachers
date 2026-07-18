@@ -17,9 +17,14 @@ create table if not exists public.billing (
   updated_at         timestamptz not null default now()
 );
 
--- Safe to re-run: add the counter column to an existing billing table.
+-- Safe to re-run: add the counter columns to an existing billing table.
 alter table public.billing
   add column if not exists trial_generations_used integer not null default 0;
+-- Fair-use monthly cap for paying subscribers (resets each calendar month).
+alter table public.billing
+  add column if not exists monthly_generations_used integer not null default 0;
+alter table public.billing
+  add column if not exists monthly_period text; -- 'YYYY-MM' (UTC) of the count above
 
 alter table public.billing enable row level security;
 

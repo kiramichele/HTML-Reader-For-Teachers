@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ArrowLeft, Upload, Sparkles, Clock, Check } from "lucide-react";
 import { isAnthropicConfigured } from "@/lib/anthropic";
 import { getAccessSynced } from "@/lib/billing";
-import { PRICE_LABEL, FREE_GENERATIONS } from "@/lib/stripe";
+import { PRICE_LABEL, FREE_GENERATIONS, PAID_MONTHLY_LIMIT } from "@/lib/stripe";
 import { startCheckout } from "@/app/billing/actions";
 import { GenerateForm } from "./GenerateForm";
 
@@ -68,8 +68,17 @@ export default async function GeneratePage({
                 {access.freeLimit} AI generations left.
               </div>
             )}
+            {access.billingEnforced && access.subscribed && access.monthlyLeft <= 15 && (
+              <div className="rounded-cozy border border-accent/30 bg-accent/5 p-3 text-sm mb-5 inline-flex items-center gap-2">
+                <Clock className="w-4 h-4 text-accent" />
+                <strong>{access.monthlyLeft}</strong> of{" "}
+                {access.paidMonthlyLimit} generations left this month.
+              </div>
+            )}
             <GenerateForm />
           </>
+        ) : access?.subscribed ? (
+          <MonthlyCapCard />
         ) : (
           <Paywall />
         )}
@@ -105,6 +114,35 @@ function Paywall() {
         </Link>{" "}
         for free instead.
       </p>
+    </div>
+  );
+}
+
+function MonthlyCapCard() {
+  return (
+    <div className="rounded-cozy border border-border bg-surface p-6">
+      <div className="flex items-center gap-2 mb-2">
+        <Clock className="w-5 h-5 text-accent" />
+        <h2 className="font-semibold">
+          You&apos;ve hit this month&apos;s limit of {PAID_MONTHLY_LIMIT}{" "}
+          generations
+        </h2>
+      </div>
+      <p className="text-sm text-muted mb-4">
+        Your subscription is active — this is just a fair-use limit that keeps
+        costs sane. It resets on the 1st of next month. In the meantime you can
+        still{" "}
+        <Link href="/activities/new" className="text-accent hover:underline">
+          upload your own HTML
+        </Link>{" "}
+        for free, and all your existing activities keep working.
+      </p>
+      <Link
+        href="/dashboard"
+        className="inline-flex items-center gap-1.5 text-sm text-accent hover:underline"
+      >
+        Back to my activities
+      </Link>
     </div>
   );
 }

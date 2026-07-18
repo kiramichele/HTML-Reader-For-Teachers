@@ -6,10 +6,10 @@ import Anthropic from "@anthropic-ai/sdk";
 // Server-only — never import from a "use client" file.
 // ---------------------------------------------------------------------
 
-// Best quality by default. Switch to "claude-sonnet-5" for lower cost
-// (~$3/$15 vs $5/$25 per MTok) and faster generation — a good trade for a
-// classroom tool used live by many teachers.
-const MODEL = "claude-opus-4-8";
+// Sonnet 5: strong at HTML + the tool-use wiring, ~half the per-generation cost
+// of Opus and faster — the right default for a classroom tool billed at a flat
+// monthly price. Switch to "claude-opus-4-8" for max quality at higher cost.
+const MODEL = "claude-sonnet-5";
 
 export type GeneratedField = { id: string; prompt: string };
 export type GeneratedActivity = {
