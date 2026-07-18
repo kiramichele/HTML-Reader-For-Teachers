@@ -8,7 +8,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { makeSlug } from "@/lib/slug";
 import { generateActivity, type GeneratedActivity } from "@/lib/anthropic";
-import { getAccess } from "@/lib/billing";
+import { getAccess, recordGeneration } from "@/lib/billing";
 import { styleHint } from "@/lib/styles";
 
 const BUCKET = "activities";
@@ -129,13 +129,14 @@ export async function generateActivityDraft(
   } = await supabase.auth.getUser();
   if (!user) return { status: "error", error: "Not signed in" };
 
-  // Only AI generation is gated: free during the 30-day trial, then requires
-  // a subscription. (Upload/share/collect stay free forever.)
+  // Only AI generation is gated: free for a fixed number of generations, then
+  // requires a subscription. (Upload/share/collect stay free forever.)
   const access = await getAccess();
   if (access && !access.canGenerate) {
     return {
       status: "error",
-      error: "Your free trial has ended. Subscribe to keep generating with Claude.",
+      error:
+        "You've used your free generations. Subscribe to keep generating with Claude.",
     };
   }
 
@@ -151,6 +152,9 @@ export async function generateActivityDraft(
   );
   const result = await generateActivity(parsed.data, hint);
   if (!result.ok) return { status: "error", error: result.error };
+
+  // Count this successful generation against the free trial (regenerations too).
+  await recordGeneration();
 
   return { status: "ready", activity: result.activity, prompt: parsed.data };
 }

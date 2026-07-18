@@ -3,6 +3,7 @@
 import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { signIn, signUp, type AuthState } from "./actions";
+import { FREE_GENERATIONS } from "@/lib/plan";
 
 const initialState: AuthState = { error: null };
 
@@ -89,7 +90,8 @@ export function LoginForm({ next }: { next?: string }) {
 
         {mode === "signup" ? (
           <p className="text-xs text-muted leading-relaxed">
-            Free for 30 days. After that, <strong>AI generation</strong> is{" "}
+            Your first <strong>{FREE_GENERATIONS} AI generations</strong> are
+            free. After that, <strong>AI generation</strong> is{" "}
             <strong>$10/month</strong> — the Claude AI runs aren&apos;t free, so
             the subscription covers them. Everything else (uploading your own
             HTML, sharing, join codes, collecting student data) stays free.

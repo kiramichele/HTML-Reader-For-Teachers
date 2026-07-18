@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ArrowLeft, Upload, Sparkles, Clock, Check } from "lucide-react";
 import { isAnthropicConfigured } from "@/lib/anthropic";
 import { getAccessSynced } from "@/lib/billing";
-import { PRICE_LABEL, TRIAL_DAYS } from "@/lib/stripe";
+import { PRICE_LABEL, FREE_GENERATIONS } from "@/lib/stripe";
 import { startCheckout } from "@/app/billing/actions";
 import { GenerateForm } from "./GenerateForm";
 
@@ -64,8 +64,8 @@ export default async function GeneratePage({
             {access.billingEnforced && !access.subscribed && (
               <div className="rounded-cozy border border-accent/30 bg-accent/5 p-3 text-sm mb-5 inline-flex items-center gap-2">
                 <Clock className="w-4 h-4 text-accent" />
-                Free trial — <strong>{access.daysLeft}</strong>{" "}
-                {access.daysLeft === 1 ? "day" : "days"} left of AI generation.
+                Free trial — <strong>{access.generationsLeft}</strong> of{" "}
+                {access.freeLimit} AI generations left.
               </div>
             )}
             <GenerateForm />
@@ -83,13 +83,15 @@ function Paywall() {
     <div className="rounded-cozy border border-border bg-surface p-6">
       <div className="flex items-center gap-2 mb-2">
         <Sparkles className="w-5 h-5 text-accent" />
-        <h2 className="font-semibold">Your {TRIAL_DAYS}-day free trial has ended</h2>
+        <h2 className="font-semibold">
+          You&apos;ve used your {FREE_GENERATIONS} free generations
+        </h2>
       </div>
       <p className="text-sm text-muted mb-4">
         Generating activities runs Anthropic&apos;s Claude API, which isn&apos;t
-        free — so AI generation is <strong>{PRICE_LABEL}</strong> after the
-        trial. Everything else stays free: uploading your own HTML, sharing,
-        join codes, and collecting student data.
+        free — so after your {FREE_GENERATIONS} free generations, AI generation
+        is <strong>{PRICE_LABEL}</strong>. Everything else stays free: uploading
+        your own HTML, sharing, join codes, and collecting student data.
       </p>
       <form action={startCheckout}>
         <button className="inline-flex items-center gap-2 px-5 py-2.5 rounded-cozy bg-accent text-accent-ink font-medium hover:opacity-90 transition">

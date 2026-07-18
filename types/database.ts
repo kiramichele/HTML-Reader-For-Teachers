@@ -82,6 +82,7 @@ export type Database = {
           stripe_customer_id: string | null;
           status: string;
           current_period_end: string | null;
+          trial_generations_used: number;
           updated_at: string;
         };
         Insert: {
@@ -89,6 +90,7 @@ export type Database = {
           stripe_customer_id?: string | null;
           status?: string;
           current_period_end?: string | null;
+          trial_generations_used?: number;
           updated_at?: string;
         };
         Update: {
@@ -96,6 +98,7 @@ export type Database = {
           stripe_customer_id?: string | null;
           status?: string;
           current_period_end?: string | null;
+          trial_generations_used?: number;
           updated_at?: string;
         };
         Relationships: [];

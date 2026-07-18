@@ -47,8 +47,8 @@ export default async function DashboardPage() {
             ) : access.trialActive ? (
               <span className="inline-flex items-center gap-2 text-muted">
                 <CreditCard className="w-4 h-4 text-accent" /> Free trial:{" "}
-                <strong className="text-ink">{access.daysLeft}</strong>{" "}
-                {access.daysLeft === 1 ? "day" : "days"} of AI generation left.
+                <strong className="text-ink">{access.generationsLeft}</strong>{" "}
+                of {access.freeLimit} AI generations left.
               </span>
             ) : (
               <span className="inline-flex items-center gap-2 text-muted">

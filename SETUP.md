@@ -53,13 +53,16 @@ npm run dev
 
 Open <http://localhost:3000>.
 
-## 6. (Optional) Billing — $10/month after a 30-day trial
+## 6. (Optional) Billing — $10/month after the free-generation trial
 
-Gates only **AI generation** (the Anthropic cost). Upload, sharing, join codes,
-and data collection are always free. Skip this whole section to leave generation
+Gates only **AI generation** (the Anthropic cost). Each teacher gets a fixed
+number of free generations (`FREE_GENERATIONS` in `lib/plan.ts`, default 25) —
+this bounds your free API cost per teacher. Upload, sharing, join codes, and
+data collection are always free. Skip this whole section to leave generation
 open (the trial banner just won't enforce anything).
 
-1. Run `supabase/billing.sql` (step 3 above).
+1. Run `supabase/billing.sql` (step 3 above). If you already ran it, re-run it —
+   it safely adds the `trial_generations_used` column.
 2. In the **Stripe dashboard** (test mode first):
    - **Products → Add product** → recurring price, **$10 / month** → copy the
      **Price ID** (`price_...`) into `STRIPE_PRICE_ID`.

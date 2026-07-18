@@ -2,8 +2,8 @@
 -- Billing: one row per teacher, synced from Stripe by the webhook.
 -- Run in the Supabase SQL editor after schema.sql.
 --
--- The 30-day free trial is derived from the user's signup date (auth.users
--- .created_at) — not stored here. This table only tracks the paid
+-- The free trial is usage-based (a fixed number of AI generations); the count
+-- is tracked in trial_generations_used below. This table also tracks the paid
 -- subscription state that gates "Generate with Claude" after the trial.
 -- =====================================================================
 
@@ -12,8 +12,14 @@ create table if not exists public.billing (
   stripe_customer_id text unique,
   status             text not null default 'none', -- none | active | trialing | past_due | canceled | incomplete
   current_period_end timestamptz,
+  -- Usage-based free trial: count of AI generations used (incl. regenerations).
+  trial_generations_used integer not null default 0,
   updated_at         timestamptz not null default now()
 );
+
+-- Safe to re-run: add the counter column to an existing billing table.
+alter table public.billing
+  add column if not exists trial_generations_used integer not null default 0;
 
 alter table public.billing enable row level security;
 
