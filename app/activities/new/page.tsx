@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { UploadForm } from "./UploadForm";
+import { ClaudeTemplate } from "./ClaudeTemplate";
 
 export default function NewActivityPage() {
   return (
@@ -18,11 +19,12 @@ export default function NewActivityPage() {
         <p className="text-muted text-sm mb-2">
           Upload the HTML file you made with Claude.
         </p>
-        <p className="text-sm mb-8">
+        <p className="text-sm mb-6">
           <Link href="/activities/generate" className="text-accent hover:underline">
             Or have Claude build one for you →
           </Link>
         </p>
+        <ClaudeTemplate />
         <UploadForm />
       </div>
     </main>
