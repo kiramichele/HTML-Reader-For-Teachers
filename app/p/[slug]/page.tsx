@@ -4,6 +4,10 @@ import { Player } from "./Player";
 
 const BUCKET = "activities";
 
+// Always render fresh — the activity HTML is fetched at request time and can
+// change (or be deleted). Prevents Vercel from serving a stale cached page.
+export const dynamic = "force-dynamic";
+
 export default async function PlayerPage({
   params,
 }: {
