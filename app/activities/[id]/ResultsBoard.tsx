@@ -1,13 +1,21 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Radio, Users, Eye, EyeOff } from "lucide-react";
+import {
+  Radio,
+  Users,
+  Eye,
+  EyeOff,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { groupQuestions, chooseViz, tally, type Question } from "@/lib/viz";
+import { groupQuestionsFull, chooseViz, tally, type Question } from "@/lib/viz";
 import type { ResponseRow } from "./LiveData";
 
-// Projectable, live-updating results for the Present screen. Names are hidden
-// by default (you're showing the whole class); a toggle reveals them.
+// Projectable, live-updating results for the Present screen. Shows one question
+// at a time by default (present slide-by-slide) or all at once. Names are
+// hidden by default (you're showing the whole class); a toggle reveals them.
 export function ResultsBoard({
   activityId,
   initial,
@@ -18,6 +26,8 @@ export function ResultsBoard({
   const [rows, setRows] = useState<ResponseRow[]>(initial);
   const [live, setLive] = useState(false);
   const [showNames, setShowNames] = useState(false);
+  const [mode, setMode] = useState<"single" | "all">("single");
+  const [idx, setIdx] = useState(0);
 
   useEffect(() => {
     const supabase = createClient();
@@ -47,11 +57,25 @@ export function ResultsBoard({
     };
   }, [activityId]);
 
-  const questions = useMemo(() => groupQuestions(rows), [rows]);
+  // Include not-yet-answered questions so you can page through every slide.
+  const questions = useMemo(() => groupQuestionsFull(rows), [rows]);
+  const count = questions.length;
+  const safeIdx = count ? Math.min(idx, count - 1) : 0;
+
+  // Arrow keys advance slides in single mode.
+  useEffect(() => {
+    if (mode !== "single" || count === 0) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "ArrowRight") setIdx((i) => Math.min(count - 1, i + 1));
+      if (e.key === "ArrowLeft") setIdx((i) => Math.max(0, i - 1));
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [mode, count]);
 
   return (
     <div className="w-full max-w-4xl mx-auto">
-      <div className="flex items-center justify-between gap-4 mb-6">
+      <div className="flex items-center justify-between gap-4 mb-6 flex-wrap">
         <span className="inline-flex items-center gap-2 text-lg">
           <Users className="w-5 h-5 text-accent" />
           <span className="font-semibold">{rows.length}</span>
@@ -60,6 +84,28 @@ export function ResultsBoard({
           </span>
         </span>
         <div className="flex items-center gap-4">
+          <div className="inline-flex rounded-cozy border border-border overflow-hidden text-sm">
+            <button
+              onClick={() => setMode("single")}
+              className={`px-3 py-1.5 transition ${
+                mode === "single"
+                  ? "bg-accent text-accent-ink"
+                  : "bg-surface text-muted"
+              }`}
+            >
+              One at a time
+            </button>
+            <button
+              onClick={() => setMode("all")}
+              className={`px-3 py-1.5 transition ${
+                mode === "all"
+                  ? "bg-accent text-accent-ink"
+                  : "bg-surface text-muted"
+              }`}
+            >
+              All
+            </button>
+          </div>
           <button
             onClick={() => setShowNames((v) => !v)}
             className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink transition"
@@ -84,15 +130,38 @@ export function ResultsBoard({
         </div>
       </div>
 
-      {questions.length === 0 ? (
+      {count === 0 ? (
         <div className="rounded-cozy border border-dashed border-border p-16 text-center text-muted">
           Waiting for the first response…
         </div>
-      ) : (
+      ) : mode === "all" ? (
         <div className="space-y-8">
           {questions.map((q, i) => (
             <BigQuestion key={i} q={q} showNames={showNames} />
           ))}
+        </div>
+      ) : (
+        <div>
+          <BigQuestion q={questions[safeIdx]} showNames={showNames} />
+          <div className="flex items-center justify-between gap-3 mt-6">
+            <button
+              onClick={() => setIdx((i) => Math.max(0, i - 1))}
+              disabled={safeIdx === 0}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-cozy border border-border bg-surface hover:border-accent transition disabled:opacity-40 disabled:hover:border-border"
+            >
+              <ChevronLeft className="w-4 h-4" /> Back
+            </button>
+            <span className="text-sm text-muted tabular-nums">
+              Question {safeIdx + 1} of {count}
+            </span>
+            <button
+              onClick={() => setIdx((i) => Math.min(count - 1, i + 1))}
+              disabled={safeIdx === count - 1}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-cozy border border-border bg-surface hover:border-accent transition disabled:opacity-40 disabled:hover:border-border"
+            >
+              Next <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
         </div>
       )}
     </div>
@@ -107,7 +176,13 @@ function BigQuestion({ q, showNames }: { q: Question; showNames: boolean }) {
         {q.prompt}
         <span className="text-faint font-normal text-base"> · {q.answers.length}</span>
       </h3>
-      {viz === "bar" ? <BigBars q={q} /> : <BigWall q={q} showNames={showNames} />}
+      {q.answers.length === 0 ? (
+        <p className="text-muted">No responses yet.</p>
+      ) : viz === "bar" ? (
+        <BigBars q={q} />
+      ) : (
+        <BigWall q={q} showNames={showNames} />
+      )}
     </div>
   );
 }

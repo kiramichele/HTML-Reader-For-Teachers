@@ -30,21 +30,41 @@ export function itemsOf(data: Json | null): Item[] {
   return out;
 }
 
-// Group every answer under its prompt -> one question card each.
+// Group every answer under its prompt -> one question card each. Only questions
+// that have at least one answer appear (used by the teacher dashboard).
 export function groupQuestions(
   rows: { structured_data: Json | null; student_name: string }[]
+): Question[] {
+  return groupQuestionsInternal(rows, false);
+}
+
+// Like groupQuestions, but includes every question in the activity even before
+// anyone has answered it (used by the Present board so you can page through all
+// slides in order). Order follows the activity's field order.
+export function groupQuestionsFull(
+  rows: { structured_data: Json | null; student_name: string }[]
+): Question[] {
+  return groupQuestionsInternal(rows, true);
+}
+
+function groupQuestionsInternal(
+  rows: { structured_data: Json | null; student_name: string }[],
+  includeEmpty: boolean
 ): Question[] {
   const map = new Map<string, Question>();
   for (const row of rows) {
     for (const item of itemsOf(row.structured_data)) {
-      if (!item.answer.trim()) continue;
+      const answered = !!item.answer.trim();
+      if (!answered && !includeEmpty && !map.has(item.id)) continue;
       if (!map.has(item.id)) {
         map.set(item.id, { prompt: item.prompt, type: item.type, answers: [] });
       }
-      map.get(item.id)!.answers.push({
-        name: row.student_name,
-        answer: item.answer.trim(),
-      });
+      if (answered) {
+        map.get(item.id)!.answers.push({
+          name: row.student_name,
+          answer: item.answer.trim(),
+        });
+      }
     }
   }
   return Array.from(map.values());
