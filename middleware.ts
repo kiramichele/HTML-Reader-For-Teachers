@@ -35,7 +35,9 @@ export async function middleware(request: NextRequest) {
   const isLoginPage = path === "/login";
   // Public, shareable player pages — the links teachers send to students.
   const isPlayer = path.startsWith("/p/");
-  const isPublic = path === "/" || isLoginPage || isPlayer;
+  // The raw activity HTML served to the sandboxed iframe (students aren't signed in).
+  const isActivityFile = path.startsWith("/a/");
+  const isPublic = path === "/" || isLoginPage || isPlayer || isActivityFile;
 
   // Not signed in + accessing a protected route -> /login, remembering where
   // they were headed so we can bounce them back after sign-in.
