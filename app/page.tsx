@@ -12,12 +12,20 @@ export default async function Home() {
     <main className="min-h-screen">
       <header className="max-w-5xl mx-auto px-6 py-6 flex items-center justify-between">
         <span className="font-semibold text-lg">📎 Share &amp; Collect</span>
-        <Link
-          href={user ? "/dashboard" : "/login"}
-          className="text-sm px-4 py-2 rounded-cozy bg-accent text-accent-ink font-medium hover:opacity-90 transition"
-        >
-          {user ? "My activities" : "Sign in"}
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link
+            href="/join"
+            className="text-sm px-4 py-2 rounded-cozy border border-border hover:border-accent transition"
+          >
+            Join a class
+          </Link>
+          <Link
+            href={user ? "/dashboard" : "/login"}
+            className="text-sm px-4 py-2 rounded-cozy bg-accent text-accent-ink font-medium hover:opacity-90 transition"
+          >
+            {user ? "My activities" : "Sign in"}
+          </Link>
+        </div>
       </header>
 
       <section className="max-w-3xl mx-auto px-6 pt-16 pb-10 text-center">

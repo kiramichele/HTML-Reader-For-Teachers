@@ -1,10 +1,13 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, ExternalLink, Trash2 } from "lucide-react";
+import { ArrowLeft, ExternalLink, Trash2, MonitorPlay } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { getOrigin, buildJoinInfo } from "@/lib/join";
 import { deleteActivity } from "../actions";
 import { ShareLink } from "./ShareLink";
 import { LiveData, type ResponseRow } from "./LiveData";
+
+export const dynamic = "force-dynamic";
 
 export default async function ActivityPage({
   params,
@@ -21,6 +24,10 @@ export default async function ActivityPage({
     .single();
 
   if (!activity) notFound();
+
+  const origin = await getOrigin();
+  const join = await buildJoinInfo(activity.share_slug, origin, 132);
+  const joinHost = join.joinUrl.replace(/^https?:\/\//, "");
 
   const { data: responses } = activity.collect_data
     ? await supabase
@@ -55,8 +62,33 @@ export default async function ActivityPage({
           </form>
         </div>
 
+        <div className="rounded-cozy border border-border bg-surface p-5 mb-6">
+          <div className="flex flex-col sm:flex-row gap-5 sm:items-center">
+            <div className="flex-1">
+              <p className="text-sm text-muted mb-1">
+                Students join at{" "}
+                <span className="font-medium text-ink">{joinHost}</span> with code
+              </p>
+              <p className="font-mono font-bold tracking-[0.15em] text-3xl mb-3">
+                {join.code}
+              </p>
+              <Link
+                href={`/activities/${activity.id}/present`}
+                target="_blank"
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-cozy bg-accent text-accent-ink font-medium hover:opacity-90 transition text-sm"
+              >
+                <MonitorPlay className="w-4 h-4" /> Present to class
+              </Link>
+            </div>
+            <div
+              className="shrink-0 bg-white p-2 rounded-cozy border border-border self-start"
+              dangerouslySetInnerHTML={{ __html: join.qrSvg }}
+            />
+          </div>
+        </div>
+
         <div className="rounded-cozy border border-border bg-surface p-5 mb-8">
-          <p className="text-sm text-muted mb-2">Share this link with students</p>
+          <p className="text-sm text-muted mb-2">Or share a direct link</p>
           <ShareLink slug={activity.share_slug} />
           <a
             href={`/p/${activity.share_slug}`}

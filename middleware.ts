@@ -37,7 +37,10 @@ export async function middleware(request: NextRequest) {
   const isPlayer = path.startsWith("/p/");
   // The raw activity HTML served to the sandboxed iframe (students aren't signed in).
   const isActivityFile = path.startsWith("/a/");
-  const isPublic = path === "/" || isLoginPage || isPlayer || isActivityFile;
+  // Students enter a class code here — no login.
+  const isJoin = path === "/join";
+  const isPublic =
+    path === "/" || isLoginPage || isPlayer || isActivityFile || isJoin;
 
   // Not signed in + accessing a protected route -> /login, remembering where
   // they were headed so we can bounce them back after sign-in.
